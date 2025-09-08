@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MyAnime</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header / Navbar -->
+  <header class="nav">
+    <a class="brand" href="index.html"><strong>MyAnime</strong></a>
+
+    <!-- Search area -->
+    <div class="search">
+      <input id="searchInput" type="search" placeholder="Search by title…" aria-label="Search anime" />
+      <select id="genreSelect" aria-label="Genre">
+        <option value="">All genres</option>
+      </select>
+      <button id="searchBtn" class="btn">Search</button>
+      <label class="mine">
+        <input type="checkbox" id="showMine" />
+        Show my anime
+      </label>
+    </div>
+
+    <!-- Auth area -->
+    <div id="userInfo" class="auth"></div>
+  </header>
+
+  <main id="home">
+    <!-- SEARCH RESULTS -->
+    <section class="row" id="row-search-wrap" hidden>
+      <div class="row-header">
+        <h2 class="row-title">Search results</h2>
+        <div class="row-controls">
+          <button class="row-btn prev" data-target="row-search" aria-label="Scroll left">‹</button>
+          <button class="row-btn next" data-target="row-search" aria-label="Scroll right">›</button>
+        </div>
+      </div>
+      <div class="row-scroll" id="row-search" role="list"></div>
+    </section>
+
+    <!-- FAVORITES / MY ANIME -->
+    <section class="row" id="row-favorites-wrap" hidden>
+      <div class="row-header">
+        <h2 class="row-title">My anime</h2>
+        <div class="row-controls">
+          <button class="row-btn prev" data-target="row-favorites" aria-label="Scroll left">‹</button>
+          <button class="row-btn next" data-target="row-favorites" aria-label="Scroll right">›</button>
+        </div>
+      </div>
+      <div class="row-scroll" id="row-favorites" role="list"></div>
+      <p id="fav-hint" class="muted"></p>
+    </section>
+
+    <!-- POPULAR (by popularity) -->
+    <section class="row">
+      <div class="row-header">
+        <h2 class="row-title">Most popular</h2>
+        <div class="row-controls">
+          <button class="row-btn prev" data-target="row-popular" aria-label="Scroll left">‹</button>
+          <button class="row-btn next" data-target="row-popular" aria-label="Scroll right">›</button>
+        </div>
+      </div>
+      <div class="row-scroll" id="row-popular" role="list"></div>
+    </section>
+
+    <!-- AIRING NOW -->
+    <section class="row">
+      <div class="row-header">
+        <h2 class="row-title">Airing now</h2>
+        <div class="row-controls">
+          <button class="row-btn prev" data-target="row-airing" aria-label="Scroll left">‹</button>
+          <button class="row-btn next" data-target="row-airing" aria-label="Scroll right">›</button>
+        </div>
+      </div>
+      <div class="row-scroll" id="row-airing" role="list"></div>
+    </section>
+
+    <!-- TOP RATED -->
+    <section class="row">
+      <div class="row-header">
+        <h2 class="row-title">Top rated</h2>
+        <div class="row-controls">
+          <button class="row-btn prev" data-target="row-top" aria-label="Scroll left">‹</button>
+          <button class="row-btn next" data-target="row-top" aria-label="Scroll right">›</button>
+        </div>
+      </div>
+      <div class="row-scroll" id="row-top" role="list"></div>
+    </section>
+
+    <!-- SEASON (NOW) -->
+    <section class="row">
+      <div class="row-header">
+        <h2 class="row-title">Season (now)</h2>
+        <div class="row-controls">
+          <button class="row-btn prev" data-target="row-season" aria-label="Scroll left">‹</button>
+          <button class="row-btn next" data-target="row-season" aria-label="Scroll right">›</button>
+        </div>
+      </div>
+      <div class="row-scroll" id="row-season" role="list"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2025 MyAnime</p>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

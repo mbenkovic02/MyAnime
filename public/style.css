@@ -1,0 +1,153 @@
+/* ========== Dark theme base ========== */
+:root{
+  --bg:#0f0f0f;
+  --panel:#171717;
+  --elev:#1e1e1e;
+  --text:#f1f1f1;
+  --muted:#9aa0a6;
+  --brand:#e11d48;
+  --btn:#2563eb;
+  --btn-hover:#1f54d6;
+  --btn-sec:#2a2a2a;
+  --btn-sec-hover:#333;
+  --card-w: 180px;
+  --card-h: 260px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;
+  background:var(--bg); color:var(--text);
+}
+
+/* ========== Navbar ========== */
+.nav{
+  position:sticky; top:0; z-index:10;
+  display:flex; align-items:center; gap:16px;
+  padding:12px 16px; background:rgba(15,15,15,.9); backdrop-filter: blur(8px);
+  border-bottom:1px solid #222;
+}
+.brand{color:var(--text); text-decoration:none; font-size:1.3rem; letter-spacing:.5px}
+.brand strong{font-weight:800}
+
+.search{display:flex; align-items:center; gap:8px; margin-left:auto; margin-right:auto; max-width:900px; width:100%}
+.search input[type="search"],
+.search select{
+  flex:1; min-width:120px; padding:10px 12px; border:1px solid #2a2a2a; border-radius:10px;
+  background:#121212; color:var(--text);
+}
+
+/* primary (Search) */
+.btn{
+  padding:10px 14px; border:none; border-radius:10px; background:var(--btn); color:#fff; cursor:pointer;
+  transition: background .15s ease, transform .06s ease;
+}
+.btn:hover{ background:var(--btn-hover); }
+.btn:active{ transform: translateY(1px); }
+
+/* secondary (Login / Register / Logout) — unified look for <a> and <button> */
+.btn-secondary,
+.btn-secondary:visited{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:8px 12px; border:none; border-radius:10px; background:var(--btn-sec); color:#fff; cursor:pointer;
+  text-decoration:none; line-height:1; transition: background .15s ease, transform .06s ease;
+}
+.btn-secondary:hover{ background:var(--btn-sec-hover); }
+.btn-secondary:active{ transform: translateY(1px); }
+/* same visual width for auth buttons */
+.auth .btn-secondary{ min-width:96px; text-align:center; }
+
+.mine{display:flex; align-items:center; gap:6px; color:var(--muted); white-space:nowrap}
+.mine input{
+  width:18px; height:18px; accent-color: var(--btn);
+  transform: translateY(1px);
+}
+
+.auth{
+  display:flex; align-items:center; gap:6px; /* smanjen gap */
+}
+.auth .name{color:#fff; opacity:.9;}
+
+/* ========== Rows (Netflix-like) ========== */
+main{padding:16px}
+.row{margin:12px 0 22px}
+
+/* title + arrows right */
+.row-header{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin:0 6px 10px;
+}
+.row-title{margin:0; font-size:1.1rem; color:#fff; font-weight:700}
+.row-controls{display:flex; gap:6px}
+.row-btn{
+  width:34px; height:34px; border-radius:50%; border:1px solid #2a2a2a;
+  background:#1b1b1b; color:#fff; cursor:pointer; transition: background .15s ease;
+}
+.row-btn:hover{background:#222}
+
+.row-scroll{
+  display:flex; gap:12px; overflow-x:auto; padding:6px 4px 10px;
+  scroll-snap-type:x proximity;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.row-scroll::-webkit-scrollbar{ display:none }
+
+/* Cards */
+.card{
+  position:relative; flex:0 0 auto;
+  width:var(--card-w); height:var(--card-h); border-radius:14px;
+  background:var(--elev); overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.3);
+  scroll-snap-align:start; transition:transform .15s ease;
+}
+.card:hover{transform:translateY(-2px)}
+.card a{color:inherit; text-decoration:none; display:block; width:100%; height:100%}
+.card img{
+  width:100%; height:72%; object-fit:cover; display:block;
+}
+.card h3{
+  margin:8px 10px; font-size:.95rem; font-weight:600; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.badge{
+  position:absolute; top:8px; left:8px; background:rgba(0,0,0,.7);
+  color:#fff; padding:4px 8px; border-radius:999px; font-size:.75rem;
+}
+.star{
+  position:absolute; top:8px; right:8px; width:28px; height:28px; border:none; border-radius:50%;
+  background:rgba(0,0,0,.55); color:#ffd700; cursor:pointer; display:grid; place-items:center;
+  transition: background .15s ease;
+}
+.star[aria-pressed="true"]{background:#3b3b3b}
+.star:hover{ background:#2c2c2c; }
+
+.muted{color:var(--muted); margin:8px 6px}
+
+/* Footer */
+.footer{padding:22px; text-align:center; color:#9aa0a6; border-top:1px solid #222}
+
+/* Responsive tweaks */
+@media (max-width: 800px){
+  :root{ --card-w: 148px; --card-h: 220px; }
+  .search{gap:6px}
+  .nav{flex-wrap:wrap}
+  .auth{margin-left:auto}
+}
+@media (max-width: 460px){
+  :root{ --card-w: 136px; --card-h: 200px; }
+  .search select{display:none}
+}
+
+/* ——— details (anime.html) ——— */
+.details-simple{
+  display:flex; gap:16px; align-items:flex-start; background:var(--elev);
+  padding:16px; border-radius:12px; margin:12px 0 18px; flex-wrap:wrap;
+}
+.details-poster{width:220px; height:330px; object-fit:cover; border-radius:12px}
+.details-info{flex:1; min-width:260px}
+.details-info h1{margin:.2rem 0 .4rem; font-size:clamp(1.2rem, 3vw, 1.8rem)}
+
+/* Characters a bit smaller on details */
+.char{ width:120px; }
+.char img{ height:160px; }
+.char h4{ font-size:.85rem; }
+.char p{ font-size:.75rem; }
