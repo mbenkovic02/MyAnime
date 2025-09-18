@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="hr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Prijava – MyAnime</title>
+  <title>Login – MyAnime</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
@@ -18,68 +18,47 @@
     }
     .card{
       width:100%; max-width:360px; background:var(--panel);
-      padding:24px; border-radius:14px; box-shadow:0 6px 24px rgba(0,0,0,.35);
+      padding:20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.35)
     }
-    .brand{
-      display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:14px;
-      color:var(--text); text-decoration:none; font-weight:800; letter-spacing:.3px;
-    }
-    .brand .dot{width:8px; height:8px; border-radius:50%; background:var(--brand)}
-    h1{margin:6px 0 18px; font-size:1.4rem}
-    label{font-size:.9rem; color:var(--muted); display:block; margin:8px 0 6px}
+    h1{margin:0 0 16px 0; font-size:22px}
+    label{display:block; font-size:14px; color:var(--muted); margin:6px 0}
     input{
-      width:100%; padding:12px 12px; border-radius:10px; border:1px solid #2a2a2a;
-      background:#121212; color:var(--text);
+      width:100%; padding:10px 12px; background:#111; color:var(--text); border:1px solid #2a2a2a; border-radius:10px;
     }
-    .btn{
-      width:100%; padding:12px 14px; border:none; border-radius:10px;
-      background:var(--btn); color:#fff; font-weight:700; cursor:pointer; margin-top:12px;
+    button{
+      margin-top:12px; width:100%; padding:10px 12px; background:var(--btn); color:#fff;
+      border:0; border-radius:10px; cursor:pointer; font-weight:600;
     }
-    .btn:disabled{opacity:.7; cursor:default}
-    .muted{color:var(--muted); font-size:.9rem}
-    .links{margin-top:12px; text-align:center}
-    .links a{color:#7aa8ff; text-decoration:none}
-    .error{color:#ff6b6b; margin-top:10px; min-height:1.2em; font-size:.9rem}
+    .row{display:flex; gap:10px}
+    .err{color:#fca5a5; font-size:14px; min-height:20px; margin-top:8px}
+    .top{position:fixed; top:16px; left:16px}
+    .top a{color:#fff; text-decoration:none; font-weight:700}
   </style>
 </head>
 <body>
-  <main class="card">
-    <a class="brand" href="index.html"><span class="dot"></span> MyAnime</a>
-    <h1>Prijava</h1>
-
-    <form id="loginForm" novalidate>
-      <label for="email">Email</label>
-      <input id="email" name="email" type="email" placeholder="ime@domena.com" required />
-
-      <label for="password">Lozinka</label>
-      <input id="password" name="password" type="password" placeholder="••••••••" required />
-
-      <button class="btn" type="submit">Prijava</button>
-      <div id="err" class="error"></div>
-
-      <div class="links muted">
-        Nemate račun? <a href="register.html">Registrirajte se</a>
-      </div>
-    </form>
-  </main>
+  <div class="top"><a href="index.html"><strong>MyAnime</strong></a></div>
+  <form class="card" id="form">
+    <h1>Login</h1>
+    <label>Email</label>
+    <input id="email" type="email" required />
+    <label>Password</label>
+    <input id="password" type="password" required minlength="6" />
+    <button id="btn" type="submit">Log in</button>
+    <div class="err" id="err"></div>
+    <div style="margin-top:8px; font-size:14px; color:var(--muted)">
+      Don’t have an account? <a href="register.html" style="color:#fff">Register</a>
+    </div>
+  </form>
 
   <script>
-    const form = document.getElementById('loginForm');
-    const errEl = document.getElementById('err');
-
-    form.addEventListener('submit', async (e) => {
+    document.getElementById('form').addEventListener('submit', async (e)=>{
       e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('btn');
+      const errEl = document.getElementById('err');
       errEl.textContent = '';
-      const b = form.querySelector('button');
-      b.disabled = true;
-
-      const email = form.email.value.trim();
-      const password = form.password.value;
-
-      if (!email || !password) {
-        errEl.textContent = 'Unesite email i lozinku.';
-        b.disabled = false; return;
-      }
+      btn.disabled = true;
 
       try{
         const res = await fetch('/api/login', {
@@ -87,17 +66,20 @@
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ email, password })
         });
-
         const data = await res.json().catch(()=>({}));
         if (res.ok && (data.success !== false)) {
-          location.href = 'index.html';
+          if (data.role === 'admin') {
+            location.href = 'admin.html';
+          } else {
+            location.href = 'index.html';
+          }
         } else {
-          errEl.textContent = data.error || 'Greška pri prijavi.';
+          errEl.textContent = data.error || 'Login error.';
         }
       }catch{
-        errEl.textContent = 'Mrežna greška. Pokušajte ponovno.';
+        errEl.textContent = 'Network error. Please try again.';
       }finally{
-        b.disabled = false;
+        btn.disabled = false;
       }
     });
   </script>

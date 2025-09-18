@@ -1,45 +1,54 @@
 <!doctype html>
-<html lang="hr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Anime detalji</title>
+  <title>Anime Details</title>
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Hero layout (slika lijevo, info desno) u sivom pravokutniku s zaobljenim rubovima -->
   <style>
-    /* Sitno stiliziranje zvjezdice na detaljima */
-    .details-actions{
-      display:flex; align-items:center; gap:10px; margin:.25rem 0 .5rem;
+    .hero-box{
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 18px;
+      align-items: start;
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+      margin: 16px;
     }
+    .hero-poster{
+      width:260px; height:390px; object-fit:cover; border-radius:12px;
+    }
+    .details-info h1{ margin:0 0 6px 0; font-size:1.8rem; }
+    .details-actions{ display:flex; align-items:center; gap:10px; margin:.25rem 0 .5rem; }
     .details-actions .star{
       position:static; width:auto; height:auto; border-radius:10px;
       padding:8px 10px; background:#232323; color:#ffd700; border:1px solid #2a2a2a; cursor:pointer;
     }
-    .details-actions .star[aria-pressed="true"]{ background:#333; }
+    /* malo prostora ispod hero sekcije */
+    main > section + section{ padding: 0 16px; }
+    /* manji grid za likove i standardni za preporuke već postoji u style.css */
   </style>
 </head>
 <body>
-  <!-- Shared navbar kao na indexu -->
   <header class="nav">
     <a class="brand" href="index.html"><strong>MyAnime</strong></a>
-
-    <div class="search">
-      <input id="searchInput" type="search" placeholder="Traži po nazivu…" aria-label="Traži anime" />
-      <select id="genreSelect" aria-label="Žanr" style="display:none"></select>
-      <button id="searchBtn" class="btn">Pretraži</button>
-    </div>
-
     <div id="userInfo" class="auth"></div>
   </header>
 
-  <main id="details">
-    <!-- Jednostavni detalji -->
-    <section class="details-simple">
-      <img id="poster" alt="" class="details-poster">
+  <main>
+    <!-- HERO: slika lijevo, info desno u sivom panelu -->
+    <section class="hero-box">
+      <img id="poster" alt="" class="hero-poster" />
       <div class="details-info">
-        <h1 id="title">Učitavanje…</h1>
+        <h1 id="title">Loading…</h1>
 
         <div class="details-actions">
-          <button id="favBtn" class="star" title="Dodaj u moje" aria-pressed="false">★ Spremi</button>
+          <button id="favBtn" class="star" title="Add to my anime" aria-pressed="false">★ Save</button>
+          <span id="scoreBadge" class="badge" style="position:static">—</span>
         </div>
 
         <p id="genres" class="muted"></p>
@@ -48,28 +57,18 @@
       </div>
     </section>
 
-    <!-- LIKOVI (strelice + infinite) -->
-    <section class="row">
-      <div class="row-header">
-        <h2 class="row-title">Likovi</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-characters" aria-label="Lijevo">‹</button>
-          <button class="row-btn next" data-target="row-characters" aria-label="Desno">›</button>
-        </div>
-      </div>
-      <div class="row-scroll character-row" id="row-characters" role="list">Učitavanje…</div>
+    <!-- Likovi: bez linkova, load 5 po kliku -->
+    <section>
+      <h2>Characters</h2>
+      <div id="charsGrid" class="grid small" role="list"></div>
+      <div class="load-more-wrap"><button id="charsMore" class="btn">Load more</button></div>
     </section>
 
-    <!-- PREPORUČENO (strelice + infinite) -->
-    <section class="row">
-      <div class="row-header">
-        <h2 class="row-title">Preporučeno</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-recommended" aria-label="Lijevo">‹</button>
-          <button class="row-btn next" data-target="row-recommended" aria-label="Desno">›</button>
-        </div>
-      </div>
-      <div class="row-scroll" id="row-recommended" role="list">Učitavanje…</div>
+    <!-- Preporučeno: kartice kao na početnoj, load 5 po kliku -->
+    <section>
+      <h2>Recommended</h2>
+      <div id="recGrid" class="grid" role="list"></div>
+      <div class="load-more-wrap"><button id="recMore" class="btn">Load more</button></div>
     </section>
   </main>
 

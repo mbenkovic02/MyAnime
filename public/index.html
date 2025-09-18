@@ -14,8 +14,19 @@
     <!-- Search area -->
     <div class="search">
       <input id="searchInput" type="search" placeholder="Search by title…" aria-label="Search anime" />
-      <select id="genreSelect" aria-label="Genre">
+      <select id="genreSelect" aria-label="Genre" title="Genre">
         <option value="">All genres</option>
+      </select>
+      <!-- Sort (dodan 'Upcoming') -->
+      <select id="sortSelect" aria-label="Sort by" title="Sort by">
+        <option value="popular" selected>Most popular</option>
+        <option value="least_popular">Least popular</option>
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+        <option value="top_rated">Top rated</option>
+        <option value="worst_rated">Worst rated</option>
+        <option value="airing">Currently airing</option>
+        <option value="upcoming">Upcoming</option>
       </select>
       <button id="searchBtn" class="btn">Search</button>
       <label class="mine">
@@ -29,77 +40,13 @@
   </header>
 
   <main id="home">
-    <!-- SEARCH RESULTS -->
-    <section class="row" id="row-search-wrap" hidden>
-      <div class="row-header">
-        <h2 class="row-title">Search results</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-search" aria-label="Scroll left">‹</button>
-          <button class="row-btn next" data-target="row-search" aria-label="Scroll right">›</button>
-        </div>
+    <!-- Single grid instead of rows -->
+    <section id="grid-wrap">
+      <div id="grid" class="grid" role="list"></div>
+      <p id="emptyHint" class="muted" hidden>No results.</p>
+      <div class="load-more-wrap">
+        <button id="loadMore" class="btn">Load more</button>
       </div>
-      <div class="row-scroll" id="row-search" role="list"></div>
-    </section>
-
-    <!-- FAVORITES / MY ANIME -->
-    <section class="row" id="row-favorites-wrap" hidden>
-      <div class="row-header">
-        <h2 class="row-title">My anime</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-favorites" aria-label="Scroll left">‹</button>
-          <button class="row-btn next" data-target="row-favorites" aria-label="Scroll right">›</button>
-        </div>
-      </div>
-      <div class="row-scroll" id="row-favorites" role="list"></div>
-      <p id="fav-hint" class="muted"></p>
-    </section>
-
-    <!-- POPULAR (by popularity) -->
-    <section class="row">
-      <div class="row-header">
-        <h2 class="row-title">Most popular</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-popular" aria-label="Scroll left">‹</button>
-          <button class="row-btn next" data-target="row-popular" aria-label="Scroll right">›</button>
-        </div>
-      </div>
-      <div class="row-scroll" id="row-popular" role="list"></div>
-    </section>
-
-    <!-- AIRING NOW -->
-    <section class="row">
-      <div class="row-header">
-        <h2 class="row-title">Airing now</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-airing" aria-label="Scroll left">‹</button>
-          <button class="row-btn next" data-target="row-airing" aria-label="Scroll right">›</button>
-        </div>
-      </div>
-      <div class="row-scroll" id="row-airing" role="list"></div>
-    </section>
-
-    <!-- TOP RATED -->
-    <section class="row">
-      <div class="row-header">
-        <h2 class="row-title">Top rated</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-top" aria-label="Scroll left">‹</button>
-          <button class="row-btn next" data-target="row-top" aria-label="Scroll right">›</button>
-        </div>
-      </div>
-      <div class="row-scroll" id="row-top" role="list"></div>
-    </section>
-
-    <!-- SEASON (NOW) -->
-    <section class="row">
-      <div class="row-header">
-        <h2 class="row-title">Season (now)</h2>
-        <div class="row-controls">
-          <button class="row-btn prev" data-target="row-season" aria-label="Scroll left">‹</button>
-          <button class="row-btn next" data-target="row-season" aria-label="Scroll right">›</button>
-        </div>
-      </div>
-      <div class="row-scroll" id="row-season" role="list"></div>
     </section>
   </main>
 

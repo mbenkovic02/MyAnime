@@ -1,371 +1,402 @@
-// ========== Globals & helpers ==========
-const $ = s => document.querySelector(s);
+// ========== Simple grid-based home ==========
+
+// Helpers
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// Keep favorite ids in memory to paint ★ initially
+const PAGE_SIZE = 25;
+
+const state = {
+  mode: 'browse', // 'browse' | 'favorites'
+  q: '',
+  genre: '',      // MAL genre/theme/demographic/explicit id (string)
+  sort: 'popular',
+  page: 1,
+};
+
 const FAVORITES = new Set();
+const favoritesCache = {
+  loaded: false,
+  items: [], // array of anime objects from Jikan
+};
 
-// How many cards we keep per row (older trimmed)
-const MAX_CARDS_PER_ROW = 120;
-
-// Jikan fetch with simple retry (429/rate-limit + transient)
-async function jikanFetch(url, { retries = 2, backoffMs = 900 } = {}) {
+// Jikan fetch with tiny retry for 429/5xx
+async function jikanFetch(url, { retries = 2, backoffMs = 700 } = {}) {
   for (let i = 0; i <= retries; i++) {
     const res = await fetch(url);
-    if (res.ok) {
-      try { return await res.json(); }
-      catch { return { data: [], pagination: { has_next_page: false } }; }
-    }
+    if (res.ok) return res.json();
     if ((res.status === 429 || res.status >= 500) && i < retries) {
       await sleep(backoffMs * (i + 1));
       continue;
     }
-    return { data: [], pagination: { has_next_page: false } };
+    throw new Error('Jikan error ' + res.status);
   }
 }
 
-// ========== Card renderer ==========
-function cardTemplate({ mal_id, title, images, score }) {
-  const idNum = Number(mal_id);
-  const isFav = FAVORITES.has(idNum);
+// ---- Genres: fetch dynamically (all types) ----
+async function populateGenres() {
+  const sel = $('#genreSelect');
+  if (!sel) return;
 
-  const img =
-    images?.jpg?.large_image_url ||
-    images?.jpg?.image_url ||
-    images?.webp?.large_image_url ||
-    images?.webp?.image_url ||
-    'https://via.placeholder.com/300x420?text=No+Image';
-  const scoreBadge = (typeof score === 'number' && !isNaN(score))
-    ? `<span class="badge">★ ${score}</span>` : '';
+  // clear all except first option
+  while (sel.options.length > 1) sel.remove(1);
 
-  const starTitle = isFav ? 'Remove from My anime' : 'Add to My anime';
-  const starPressed = isFav ? 'true' : 'false';
+  try {
+    const data = await jikanFetch('https://api.jikan.moe/v4/genres/anime');
+    const items = (data?.data || []).slice();
 
+    // Sort by name; include all 'type' values (genres, themes, demographics, explicit_genres)
+    items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    for (const g of items) {
+      const opt = document.createElement('option');
+      opt.value = String(g.mal_id);
+      opt.textContent = g.name;
+      // keep type if you ever want to group/filter later
+      opt.dataset.type = g.type || '';
+      sel.appendChild(opt);
+    }
+  } catch {
+    // fallback: keep only "All genres" to stay simple for student project
+  }
+}
+
+// Build browse URL based on state
+function buildBrowseUrl({ q, genre, sort, page }) {
+  const u = new URL('https://api.jikan.moe/v4/anime');
+  u.searchParams.set('page', page);
+  u.searchParams.set('limit', PAGE_SIZE);
+
+  if (q && q.trim().length >= 2) u.searchParams.set('q', q.trim());
+
+  if (genre) u.searchParams.set('genres', genre);
+
+  switch (sort) {
+    case 'popular':
+      u.searchParams.set('order_by', 'members');
+      u.searchParams.set('sort', 'desc');
+      break;
+    case 'least_popular':
+      u.searchParams.set('order_by', 'members');
+      u.searchParams.set('sort', 'asc');
+      break;
+    case 'az':
+      u.searchParams.set('order_by', 'title');
+      u.searchParams.set('sort', 'asc');
+      break;
+    case 'za':
+      u.searchParams.set('order_by', 'title');
+      u.searchParams.set('sort', 'desc');
+      break;
+    case 'top_rated':
+      u.searchParams.set('order_by', 'score');
+      u.searchParams.set('sort', 'desc');
+      break;
+    case 'worst_rated':
+      u.searchParams.set('order_by', 'score');
+      u.searchParams.set('sort', 'asc');
+      break;
+    case 'airing':
+      u.searchParams.set('status', 'airing');
+      u.searchParams.set('order_by', 'members');
+      u.searchParams.set('sort', 'desc');
+      break;
+    case 'upcoming':
+      u.searchParams.set('status', 'upcoming');
+      u.searchParams.set('order_by', 'members');
+      u.searchParams.set('sort', 'desc');
+      break;
+  }
+  return u.toString();
+}
+
+// Render one card
+function cardHTML(anime) {
+  const id = Number(anime.mal_id);
+  const title = anime.title || '';
+  const img = anime.images?.jpg?.image_url || '';
+  const score = (anime.score ?? 0);
+  const scoreBadge = score ? `<span class="badge">${score.toFixed(1)}</span>` : '';
+  const isFav = FAVORITES.has(id);
+  const starTitle = isFav ? 'Remove from my anime' : 'Add to my anime';
+
+  // ★ CHANGE: inline pozadina kruga — crna (nije favorit) / zelena (je favorit)
+  const starBg = isFav ? '#16a34a' /* green-600 */ : '#000000';
   return `
-    <article class="card" role="listitem" data-id="${idNum}">
-      <button class="star" title="${starTitle}" aria-label="${starTitle}" aria-pressed="${starPressed}">★</button>
-      <a href="anime.html?id=${idNum}">
+    <article class="card" role="listitem" data-id="${id}">
+      <button class="star" style="background:${starBg}" title="${starTitle}" aria-label="${starTitle}" aria-pressed="${isFav}">★</button>
+      <a href="anime.html?id=${id}">
         ${scoreBadge}
-        <img src="${img}" alt="${title ?? ''}">
-        <h3>${title ?? ''}</h3>
+        <img src="${img}" alt="${title}">
+        <h3>${title}</h3>
       </a>
     </article>
   `;
 }
 
-// ========== Row controls (arrows + infinite) ==========
-function setupRowControls(){
-  document.querySelectorAll('.row-btn').forEach(btn=>{
-    const targetId = btn.dataset.target;
-    const cont = document.getElementById(targetId);
-    if(!cont) return;
-    btn.addEventListener('click', ()=>{
-      const step = Math.round(cont.clientWidth * 0.9);
-      const dir = btn.classList.contains('prev') ? -1 : 1;
-      cont.scrollBy({ left: dir * step, behavior: 'smooth' });
-      setTimeout(()=>maybeLoadMore(targetId), 320);
-    });
-  });
-}
-function nearRightEnd(el, threshold = 48){
-  return (el.scrollLeft + el.clientWidth) >= (el.scrollWidth - threshold);
+// Render a list (append or replace)
+function renderList(animes, { append = false } = {}) {
+  const grid = $('#grid');
+  if (!append) grid.innerHTML = '';
+  grid.insertAdjacentHTML('beforeend', animes.map(cardHTML).join(''));
+  $('#emptyHint').hidden = grid.children.length > 0;
 }
 
-const rowPager = {}; // { rowId: { endpointBase, mapFn, page, hasNext, loading } }
-
-function initPagedRow(rowId, endpointBase, mapFn){
-  const cont = document.getElementById(rowId);
-  rowPager[rowId] = { endpointBase, mapFn, page: 1, hasNext: true, loading: false };
-
-  cont.innerHTML = 'Loading…';
-  loadNextPage(rowId, true);
-
-  cont.addEventListener('scroll', ()=>maybeLoadMore(rowId));
-}
-
-function makePagedUrl(endpointBase, page){
-  const url = new URL(endpointBase);
-  url.searchParams.set('page', String(page));
-  if(!url.searchParams.has('limit')) url.searchParams.set('limit','24');
-  return url.toString();
-}
-
-function pruneRowIfNeeded(rowId){
-  const cont = document.getElementById(rowId);
-  if (!cont) return;
-  const cards = cont.querySelectorAll('.card');
-  const excess = cards.length - MAX_CARDS_PER_ROW;
-  if (excess > 0 && nearRightEnd(cont)) {
-    for (let i = 0; i < excess; i++) cont.removeChild(cont.firstElementChild);
-  }
-}
-
-async function loadNextPage(rowId, first=false){
-  const state = rowPager[rowId];
-  if(!state || state.loading || !state.hasNext) return;
-
-  state.loading = true;
-  const cont = document.getElementById(rowId);
-  try{
-    const url = makePagedUrl(state.endpointBase, state.page);
-    const json = await jikanFetch(url, { retries: 3, backoffMs: 1000 });
-    const list = Array.isArray(json?.data) ? json.data : [];
-    const items = (state.mapFn ? list.map(state.mapFn).filter(Boolean) : list);
-
-    if(first) cont.innerHTML = '';
-
-    if(items.length){
-      const tmp = document.createElement('div');
-      tmp.innerHTML = items.map(cardTemplate).join('');
-      while (tmp.firstChild) cont.appendChild(tmp.firstChild);
-    }
-    state.hasNext = !!json?.pagination?.has_next_page;
-    state.page += 1;
-
-    pruneRowIfNeeded(rowId);
-  }catch{
-    if(first) cont.innerHTML = `<p class="muted">Error loading.</p>`;
-  }finally{
-    state.loading = false;
-  }
-}
-
-function maybeLoadMore(rowId){
-  const cont = document.getElementById(rowId);
-  const state = rowPager[rowId];
-  if(!cont || !state) return;
-  if(nearRightEnd(cont) && state.hasNext && !state.loading){
-    loadNextPage(rowId, false);
-  }
-}
-
-// ========== Auth UI ==========
-async function refreshUserUI(){
-  const box = $('#userInfo');
-  try{
-    const u = await fetch('/api/user').then(r=>r.json());
-    if(u){
-      box.innerHTML = `
-        <span class="name">Hello, ${u.first_name} ${u.last_name}</span>
-        <button class="btn-secondary logout">Logout</button>`;
-      box.querySelector('.logout').addEventListener('click', async ()=>{
-        await fetch('/api/logout',{method:'POST'});
-        location.reload();
-      });
-      return true;
-    }else{
-      box.innerHTML = `
-        <a class="btn-secondary" href="login.html">Login</a>
-        <a class="btn-secondary" href="register.html">Register</a>`;
-      return false;
-    }
-  }catch{
-    box.innerHTML = `
-      <a class="btn-secondary" href="login.html">Login</a>
-      <a class="btn-secondary" href="register.html">Register</a>`;
-    return false;
-  }
-}
-
-// Load favorites set (if logged in)
-async function loadFavoritesSet(){
-  FAVORITES.clear();
-  try{
-    const u = await fetch('/api/user').then(r=>r.json());
-    if(!u) return false;
-    const resp = await fetch('/api/favorites');
-    if(!resp.ok) return false;
-    const ids = await resp.json();
-    (ids || []).forEach(id => FAVORITES.add(Number(id)));
-    return true;
-  }catch{
-    return false;
-  }
-}
-
-// ========== Genres ==========
-async function loadGenres(){
-  try{
-    const { data } = await jikanFetch('https://api.jikan.moe/v4/genres/anime', { retries: 2, backoffMs: 800 });
-    const sel = $('#genreSelect');
-    data.forEach(g=>{
-      const opt = document.createElement('option');
-      opt.value = g.mal_id;
-      opt.textContent = g.name;
-      sel.appendChild(opt);
-    });
-  }catch{}
-}
-
-// ========== Generic fill (search / favorites one-shot) ==========
-async function fillRow(rowId, endpoint, mapFn, { showEmpty=false } = {}) {
-  const cont = document.getElementById(rowId);
-  cont.innerHTML = 'Loading…';
+// Favorites helpers
+async function loadFavoriteIds() {
   try {
-    const json = await jikanFetch(endpoint, { retries: 3, backoffMs: 1000 });
-    const list = Array.isArray(json?.data) ? json.data : [];
-    const items = (mapFn ? list.map(mapFn).filter(Boolean) : list);
-    cont.innerHTML = items.length
-      ? items.map(cardTemplate).join('')
-      : (showEmpty ? '<p class="muted">No data.</p>' : '');
-  } catch {
-    cont.innerHTML = `<p class="muted">Error loading.</p>`;
-  }
+    const ids = await fetch('/api/favorites').then(r => r.ok ? r.json() : []);
+    FAVORITES.clear();
+    ids.forEach(id => FAVORITES.add(Number(id)));
+  } catch {}
 }
 
-// ========== Home rows ==========
-async function loadRows(){
-  // popular (by popularity) — paginated
-  initPagedRow('row-popular', 'https://api.jikan.moe/v4/top/anime?filter=bypopularity&limit=24');
-
-  await sleep(350);
-
-  // airing now
-  initPagedRow('row-airing', 'https://api.jikan.moe/v4/top/anime?filter=airing&limit=24');
-
-  await sleep(350);
-
-  // top rated
-  initPagedRow('row-top', 'https://api.jikan.moe/v4/top/anime?limit=24');
-
-  await sleep(350);
-
-  // season now
-  initPagedRow('row-season', 'https://api.jikan.moe/v4/seasons/now?limit=24');
+// Fallback mapper: cache row -> "Jikan-like" object za cardHTML
+function mapCacheToAnime(cacheRow) {
+  return {
+    mal_id: Number(cacheRow.mal_id),
+    title: cacheRow.title,
+    images: { jpg: { image_url: cacheRow.image_url } },
+    score: cacheRow.score ?? null
+  };
 }
 
-// ========== Search ==========
-async function doSearch(){
-  const q = $('#searchInput').value.trim();
-  const genre = $('#genreSelect').value;
-  if(!q && !genre){
-    $('#row-search-wrap').hidden = true;
-    return;
-  }
-  const url = new URL('https://api.jikan.moe/v4/anime');
-  if(q) url.searchParams.set('q', q);
-  if(genre) url.searchParams.set('genres', genre);
-  url.searchParams.set('limit', '24');
-  $('#row-search-wrap').hidden = false;
-  await fillRow('row-search', url.toString(), null, { showEmpty:true });
-  $('#row-search-wrap').scrollIntoView({ behavior: 'smooth', block:'start' });
-}
+async function ensureFavoritesLoaded() {
+  if (favoritesCache.loaded) return;
 
-// ========== Favorites toggle view ==========
-async function toggleMyAnime(checked){
-  const favRowWrap = $('#row-favorites-wrap');
-  const favRow = $('#row-favorites');
-  const favHint = $('#fav-hint');
+  await loadFavoriteIds();
+  const ids = Array.from(FAVORITES);
+  favoritesCache.items = [];
 
-  if(!checked){
-    favRowWrap.hidden = true;
-    // show standard rows
-    [...document.querySelectorAll('main .row')].forEach(sec=>{
-      if(sec.id && (sec.id.startsWith('row-') && !sec.id.includes('favorites') && !sec.id.includes('search'))) sec.hidden = false;
-    });
-    return;
-  }
-  // hide standard rows
-  [...document.querySelectorAll('main .row')].forEach(sec=>{
-    if(sec.id && (sec.id.startsWith('row-') && !sec.id.includes('favorites') && !sec.id.includes('search'))) sec.hidden = true;
-  });
-  favRowWrap.hidden = false;
-  favRow.innerHTML = 'Loading…';
-  favHint.textContent = '';
-
-  try{
-    const user = await fetch('/api/user').then(r=>r.json());
-    if(!user){
-      favRow.innerHTML = '';
-      favHint.textContent = 'Sign in to view your anime.';
-      return;
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    try {
+      const data = await jikanFetch(`https://api.jikan.moe/v4/anime/${id}`);
+      if (data?.data) {
+        favoritesCache.items.push(data.data);
+      } else {
+        const c = await fetch(`/api/anime-cache/${id}`).then(r => r.ok ? r.json() : null);
+        if (c) favoritesCache.items.push(mapCacheToAnime(c));
+      }
+    } catch {
+      try {
+        const c = await fetch(`/api/anime-cache/${id}`).then(r => r.ok ? r.json() : null);
+        if (c) favoritesCache.items.push(mapCacheToAnime(c));
+      } catch {}
     }
-    // ensure FAVORITES is up-to-date
-    await loadFavoritesSet();
-
-    const ids = Array.from(FAVORITES);
-    if(!ids.length){
-      favRow.innerHTML = `<p class="muted">You have no saved anime yet.</p>`;
-      return;
-    }
-
-    // fetch first 24 favorites details
-    const slice = ids.slice(0, 24);
-    const items = [];
-    for(const id of slice){
-      const d = await jikanFetch(`https://api.jikan.moe/v4/anime/${id}`, { retries: 2, backoffMs: 800 }).catch(()=>null);
-      if(d?.data) items.push(d.data);
-      await sleep(300);
-    }
-    favRow.innerHTML = items.map(cardTemplate).join('');
-  }catch{
-    favRow.innerHTML = `<p class="muted">Favorites API is not ready yet.</p>`;
+    await sleep(150); // nježno prema API-ju
   }
+  favoritesCache.loaded = true;
 }
 
-// ========== Star click: add / remove favorite ==========
-async function handleStarClick(e){
-  const btn = e.target.closest('.star');
-  if(!btn) return;
-
-  const card = btn.closest('.card');
-  const animeId = Number(card?.dataset?.id || 0);
-  if(!animeId) return;
-
-  try{
-    const user = await fetch('/api/user').then(r=>r.json());
-    if(!user) return alert('Please sign in to save anime.');
-
-    const pressed = btn.getAttribute('aria-pressed') === 'true';
-
-    if(pressed){
-      // remove (do NOT remove card from favorites row)
-      const resp = await fetch(`/api/favorites/${animeId}`, { method: 'DELETE' });
-      if(!resp.ok) throw new Error('delete failed');
-      FAVORITES.delete(animeId);
-      btn.setAttribute('aria-pressed','false');
-      btn.title = 'Add to My anime';
-      btn.setAttribute('aria-label','Add to My anime');
-    }else{
-      // add
-      const resp = await fetch('/api/favorites', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ anime_id: animeId })
-      });
-      if(!resp.ok) throw new Error('post failed');
-      FAVORITES.add(animeId);
-      btn.setAttribute('aria-pressed','true');
-      btn.title = 'Remove from My anime';
-      btn.setAttribute('aria-label','Remove from My anime');
-    }
-  }catch{
-    alert('Action failed. Please try again.');
-  }
-}
-
-// ========== Init ==========
-document.addEventListener('DOMContentLoaded', async () => {
-  // arrows
-  setupRowControls();
-
-  // auth UI
-  const logged = await refreshUserUI();
-
-  // load favorites set (if logged)
-  if (logged) await loadFavoritesSet();
-
-  // genres and rows
-  await loadGenres();
-  await loadRows();
+// Apply filters/sort locally to favorites
+function filterSortFavorites() {
+  let items = favoritesCache.items.slice();
 
   // search
-  $('#searchBtn').addEventListener('click', doSearch);
-  $('#searchInput').addEventListener('keydown', e=>{ if(e.key === 'Enter') doSearch(); });
+  const q = state.q.trim().toLowerCase();
+  if (q.length >= 2) {
+    items = items.filter(a => (a.title || '').toLowerCase().includes(q));
+  }
 
-  // show my anime
-  $('#showMine').addEventListener('change', e => toggleMyAnime(e.target.checked));
+  // genre (check across all arrays returned by Jikan)
+  if (state.genre) {
+    const gid = Number(state.genre);
+    items = items.filter(a => {
+      const all = []
+        .concat(a.genres || [])
+        .concat(a.themes || [])
+        .concat(a.demographics || [])
+        .concat(a.explicit_genres || []);
+      const ids = all.map(g => g.mal_id);
+      return ids.includes(gid);
+    });
+  }
 
-  // ★ toggle
-  document.body.addEventListener('click', handleStarClick);
+  // sort
+  const by = (fn, dir = 1) => (a, b) => (fn(a) > fn(b) ? dir : fn(a) < fn(b) ? -dir : 0);
+  switch (state.sort) {
+    case 'popular':       items.sort(by(a => a.members ?? a.popularity ?? 0, 1)); break;
+    case 'least_popular': items.sort(by(a => a.members ?? a.popularity ?? 0, -1)); break;
+    case 'az':            items.sort(by(a => (a.title || '').toLowerCase(), 1)); break;
+    case 'za':            items.sort(by(a => (a.title || '').toLowerCase(), -1)); break;
+    case 'top_rated':     items.sort(by(a => a.score ?? 0, -1)); break;
+    case 'worst_rated':   items.sort(by(a => a.score ?? 0, 1)); break;
+    case 'airing':        items = items.filter(a => (a.status || '').toLowerCase().includes('air')); 
+                          items.sort(by(a => a.members ?? a.popularity ?? 0, 1));
+                          break;
+    case 'upcoming':      items = items.filter(a => (a.status || '').toLowerCase().includes('upcoming'));
+                          items.sort(by(a => a.members ?? a.popularity ?? 0, 1));
+                          break;
+  }
+  return items;
+}
+
+// Main loaders
+async function loadBrowse({ append = false } = {}) {
+  const url = buildBrowseUrl(state);
+  const data = await jikanFetch(url);
+  const list = data?.data || [];
+  renderList(list, { append });
+  // enable/disable load more
+  $('#loadMore').disabled = list.length < PAGE_SIZE;
+}
+
+async function loadFavorites({ append = false } = {}) {
+  await ensureFavoritesLoaded();
+  const items = filterSortFavorites();
+  const start = (state.page - 1) * PAGE_SIZE;
+  const pageItems = items.slice(start, start + PAGE_SIZE);
+  renderList(pageItems, { append });
+  $('#loadMore').disabled = (start + PAGE_SIZE) >= items.length;
+}
+
+// Event handlers
+function debounce(fn, ms=500){
+  let t;
+  return (...args)=>{
+    clearTimeout(t);
+    t = setTimeout(()=>fn(...args), ms);
+  };
+}
+
+async function refresh({ resetPage = false } = {}) {
+  if (resetPage) state.page = 1;
+  $('#loadMore').disabled = true;
+  if (state.mode === 'favorites') {
+    await loadFavorites({ append: false });
+  } else {
+    await loadBrowse({ append: false });
+  }
+}
+
+function bindUI() {
+  // Fetch genres once (dynamic)
+  populateGenres();
+
+  // Dynamic search (only input is auto)
+  const onInput = debounce(async (ev) => {
+    state.q = ev.target.value;
+    await refresh({ resetPage: true });
+  }, 500);
+  $('#searchInput').addEventListener('input', onInput);
+
+  // Other controls apply on Search click
+  $('#searchBtn').addEventListener('click', async ()=>{
+    state.genre = $('#genreSelect').value || '';
+    state.sort  = $('#sortSelect')?.value || 'popular';
+    state.q     = $('#searchInput').value.trim();
+    await refresh({ resetPage: true });
+  });
+
+  // Enter key triggers search immediately
+  $('#searchInput').addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      $('#searchBtn').click();
+    }
+  });
+
+  // Favorites toggle switches mode immediately
+  $('#showMine').addEventListener('change', async (e)=>{
+    state.mode = e.target.checked ? 'favorites' : 'browse';
+    await refresh({ resetPage: true });
+  });
+
+  // Load more
+  $('#loadMore').addEventListener('click', async ()=>{
+    state.page += 1;
+    if (state.mode === 'favorites') {
+      await loadFavorites({ append: true });
+    } else {
+      await loadBrowse({ append: true });
+    }
+  });
+
+  // Star click (event delegation)
+  $('#grid').addEventListener('click', async (e)=>{
+    const btn = e.target.closest('.star');
+    if (!btn) return;
+    const card = e.target.closest('.card');
+    const id = Number(card?.dataset?.id);
+    if (!id) return;
+
+    // must be logged in
+    const me = await fetch('/api/user').then(r=>r.json());
+    if (!me) { alert('Prijavi se da bi koristio favorite.'); return; }
+
+    if (FAVORITES.has(id)) {
+      // remove
+      const res = await fetch('/api/favorites', {
+        method:'DELETE',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ anime_id: id })
+      });
+      if (res.ok) {
+        FAVORITES.delete(id);
+        btn.setAttribute('aria-pressed', 'false');
+        btn.title = 'Add to my anime';
+        btn.style.background = '#000000'; // ★ CHANGE: boja kruga kad nije favorit
+        if (state.mode === 'favorites') {
+          // remove from cache and DOM
+          favoritesCache.items = favoritesCache.items.filter(a => Number(a.mal_id) !== id);
+          card.remove();
+        }
+      }
+    } else {
+      // add
+      const res = await fetch('/api/favorites', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ anime_id: id })
+      });
+      if (res.ok) {
+        FAVORITES.add(id);
+        btn.setAttribute('aria-pressed', 'true');
+        btn.title = 'Remove from my anime';
+        btn.style.background = '#16a34a'; // ★ CHANGE: boja kruga kad je favorit
+      }
+    }
+  });
+}
+
+// Auth area
+async function setupAuth() {
+  const wrap = $('#userInfo');
+  const me = await fetch('/api/user').then(r=>r.json()).catch(()=>null);
+  if (!wrap) return;
+
+  if (!me) {
+    wrap.innerHTML = `
+      <a class="btn-secondary" href="login.html">Login</a>
+      <a class="btn-secondary" href="register.html">Register</a>
+    `;
+    // disable favorites toggle if logged out
+    $('#showMine').disabled = true;
+  } else {
+    wrap.innerHTML = `
+      <span class="user-name">Hi, ${me.first_name || ''}</span>
+      <button id="logoutBtn" class="btn-secondary">Logout</button>
+    `;
+    $('#logoutBtn').addEventListener('click', async ()=>{
+      await fetch('/api/logout', { method:'POST' });
+      location.href = 'login.html';
+    });
+    await loadFavoriteIds(); // ★ CHANGE: osigurava da su FAVORITES popunjeni prije prvog rendera
+    $('#showMine').disabled = false;
+  }
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', async ()=>{
+  // default sort
+  const ssel = $('#sortSelect');
+  if (ssel) ssel.value = 'popular';
+
+  bindUI();
+  await setupAuth();
+
+  // initial load (browse)
+  await refresh({ resetPage: true });
 });
