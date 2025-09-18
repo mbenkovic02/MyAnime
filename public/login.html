@@ -50,38 +50,6 @@
     </div>
   </form>
 
-  <script>
-    document.getElementById('form').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const btn = document.getElementById('btn');
-      const errEl = document.getElementById('err');
-      errEl.textContent = '';
-      btn.disabled = true;
-
-      try{
-        const res = await fetch('/api/login', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ email, password })
-        });
-        const data = await res.json().catch(()=>({}));
-        if (res.ok && (data.success !== false)) {
-          if (data.role === 'admin') {
-            location.href = 'admin.html';
-          } else {
-            location.href = 'index.html';
-          }
-        } else {
-          errEl.textContent = data.error || 'Login error.';
-        }
-      }catch{
-        errEl.textContent = 'Network error. Please try again.';
-      }finally{
-        btn.disabled = false;
-      }
-    });
-  </script>
+  <script src="auth.js" defer></script>
 </body>
 </html>

@@ -60,43 +60,6 @@
     </div>
   </form>
 
-  <script>
-    document.getElementById('form').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const payload = {
-        first_name: document.getElementById('first_name').value.trim(),
-        last_name:  document.getElementById('last_name').value.trim(),
-        email:      document.getElementById('email').value.trim(),
-        password:   document.getElementById('password').value
-      };
-      const b = document.getElementById('btn');
-      const errEl = document.getElementById('err');
-      errEl.textContent = '';
-      b.disabled = true;
-
-      try{
-        const res = await fetch('/api/register', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json().catch(()=>({}));
-        if (res.ok && (data.success !== false)) {
-          if (data.role === 'admin') {
-            // prvi korisnik postaje admin → vodi na dashboard
-            location.href = 'admin.html';
-          } else {
-            location.href = 'index.html';
-          }
-        } else {
-          errEl.textContent = data.error || 'Registration error.';
-        }
-      }catch{
-        errEl.textContent = 'Network error. Please try again.';
-      }finally{
-        b.disabled = false;
-      }
-    });
-  </script>
+  <script src="auth.js" defer></script>
 </body>
 </html>
