@@ -1,5 +1,5 @@
 (async function(){
-  // check admin
+  // provjera usera je li admin
   try{
     const me = await fetch('/api/user').then(r=>r.json());
     if(!me || me.role !== 'admin'){
@@ -14,7 +14,7 @@
   const tbody = document.getElementById('tbody');
   const errorEl = document.getElementById('error');
 
-  // ---------- USERS ----------
+  // ucitavanje liste usera
   async function loadUsers(){
     errorEl.textContent = '';
     tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading…</td></tr>';
@@ -42,10 +42,11 @@
     }
   }
 
-  tbody.addEventListener('click', async (ev)=>{
-    const tr = ev.target.closest('tr[data-id]');
+  // listener za gumb promote/demote i delete na osnovu klase dom objekta
+  tbody.addEventListener('click', async (ev)=>{      //kliknuti element
+    const tr = ev.target.closest('tr[data-id]');     //vraca se dataset kliknutog redka
     if(!tr) return;
-    const id = Number(tr.dataset.id);
+    const id = Number(tr.dataset.id);                //uzima se id
     if(ev.target.classList.contains('act-promote')){
       await changeRole(id,'admin');
     }else if(ev.target.classList.contains('act-demote')){
@@ -56,6 +57,8 @@
       }
     }
   });
+
+//promjena statusa
 
   async function changeRole(id, role){
     errorEl.textContent = '';
@@ -68,8 +71,10 @@
       const e = await res.json().catch(()=>({}));
       errorEl.textContent = e.error || 'Error.';
     }
-    await loadUsers();
+    await loadUsers();             //osvjeziti ui
   }
+
+//brisanje korisnika
 
   async function deleteUser(id){
     errorEl.textContent = '';
@@ -78,16 +83,21 @@
       const e = await res.json().catch(()=>({}));
       errorEl.textContent = e.error || 'Error.';
     }
-    await loadUsers();
+    await loadUsers();              //osvjeziti ui
   }
+
+//logout
+
 
   document.getElementById('logoutBtn').addEventListener('click', async ()=>{
     await fetch('/api/logout', { method:'POST' });
     location.href = 'login.html';
   });
 
-  await loadUsers();
+  await loadUsers();            //ucitavanje usera nakon admin provjere
 
+
+  
   // ---------- CACHED ANIME (LIST + DELETE) ----------
   async function loadCacheList() {
     const $list = document.querySelector('#cacheList');

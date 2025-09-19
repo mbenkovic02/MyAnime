@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const errEl = document.getElementById('err');
   const btn = document.getElementById('btn');
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  form.addEventListener('submit', async (e) => {   //includes enter and button
+    e.preventDefault();                               // spriječi da forma pošalje POST i reloada stranicu
     errEl.textContent = '';
     btn.disabled = true;
 

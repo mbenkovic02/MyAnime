@@ -1,9 +1,9 @@
-// ========== Simple grid-based home ==========
+
 
 // Helpers
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const PAGE_SIZE = 25;
 
@@ -23,11 +23,13 @@ const favoritesCache = {
 
 // Jikan fetch with tiny retry for 429/5xx
 async function jikanFetch(url, { retries = 2, backoffMs = 700 } = {}) {
-  for (let i = 0; i <= retries; i++) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
     const res = await fetch(url);
     if (res.ok) return res.json();
-    if ((res.status === 429 || res.status >= 500) && i < retries) {
-      await sleep(backoffMs * (i + 1));
+
+    const retriable = res.status === 429 || res.status >= 500;
+    if (retriable && attempt < retries) {
+      await sleep(backoffMs * (attempt + 1));
       continue;
     }
     throw new Error('Jikan error ' + res.status);
@@ -46,7 +48,7 @@ async function populateGenres() {
     const data = await jikanFetch('https://api.jikan.moe/v4/genres/anime');
     const items = (data?.data || []).slice();
 
-    // Sort by name; include all 'type' values (genres, themes, demographics, explicit_genres)
+    // Sort by name; 
     items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     for (const g of items) {
@@ -58,7 +60,7 @@ async function populateGenres() {
       sel.appendChild(opt);
     }
   } catch {
-    // fallback: keep only "All genres" to stay simple for student project
+    
   }
 }
 
@@ -69,7 +71,6 @@ function buildBrowseUrl({ q, genre, sort, page }) {
   u.searchParams.set('limit', PAGE_SIZE);
 
   if (q && q.trim().length >= 2) u.searchParams.set('q', q.trim());
-
   if (genre) u.searchParams.set('genres', genre);
 
   switch (sort) {
@@ -116,13 +117,14 @@ function cardHTML(anime) {
   const id = Number(anime.mal_id);
   const title = anime.title || '';
   const img = anime.images?.jpg?.image_url || '';
-  const score = (anime.score ?? 0);
+  const score = anime.score ?? 0;
   const scoreBadge = score ? `<span class="badge">${score.toFixed(1)}</span>` : '';
   const isFav = FAVORITES.has(id);
   const starTitle = isFav ? 'Remove from my anime' : 'Add to my anime';
 
   // ★ CHANGE: inline pozadina kruga — crna (nije favorit) / zelena (je favorit)
-  const starBg = isFav ? '#16a34a' /* green-600 */ : '#000000';
+  const starBg = isFav ? '#16a34a' : '#000000';
+
   return `
     <article class="card" role="listitem" data-id="${id}">
       <button class="star" style="background:${starBg}" title="${starTitle}" aria-label="${starTitle}" aria-pressed="${isFav}">★</button>
@@ -146,10 +148,12 @@ function renderList(animes, { append = false } = {}) {
 // Favorites helpers
 async function loadFavoriteIds() {
   try {
-    const ids = await fetch('/api/favorites').then(r => r.ok ? r.json() : []);
+    const ids = await fetch('/api/favorites').then((r) => (r.ok ? r.json() : []));
     FAVORITES.clear();
-    ids.forEach(id => FAVORITES.add(Number(id)));
-  } catch {}
+    ids.forEach((x) => FAVORITES.add(Number(x)));
+  } catch {
+    // ignore
+  }
 }
 
 // Fallback mapper: cache row -> "Jikan-like" object za cardHTML
@@ -158,7 +162,7 @@ function mapCacheToAnime(cacheRow) {
     mal_id: Number(cacheRow.mal_id),
     title: cacheRow.title,
     images: { jpg: { image_url: cacheRow.image_url } },
-    score: cacheRow.score ?? null
+    score: cacheRow.score ?? null,
   };
 }
 
@@ -171,22 +175,27 @@ async function ensureFavoritesLoaded() {
 
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i];
+
     try {
       const data = await jikanFetch(`https://api.jikan.moe/v4/anime/${id}`);
       if (data?.data) {
         favoritesCache.items.push(data.data);
       } else {
-        const c = await fetch(`/api/anime-cache/${id}`).then(r => r.ok ? r.json() : null);
+        const c = await fetch(`/api/anime-cache/${id}`).then((r) => (r.ok ? r.json() : null));
         if (c) favoritesCache.items.push(mapCacheToAnime(c));
       }
     } catch {
       try {
-        const c = await fetch(`/api/anime-cache/${id}`).then(r => r.ok ? r.json() : null);
+        const c = await fetch(`/api/anime-cache/${id}`).then((r) => (r.ok ? r.json() : null));
         if (c) favoritesCache.items.push(mapCacheToAnime(c));
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
+
     await sleep(150); // nježno prema API-ju
   }
+
   favoritesCache.loaded = true;
 }
 
@@ -197,19 +206,19 @@ function filterSortFavorites() {
   // search
   const q = state.q.trim().toLowerCase();
   if (q.length >= 2) {
-    items = items.filter(a => (a.title || '').toLowerCase().includes(q));
+    items = items.filter((a) => (a.title || '').toLowerCase().includes(q));
   }
 
   // genre (check across all arrays returned by Jikan)
   if (state.genre) {
     const gid = Number(state.genre);
-    items = items.filter(a => {
+    items = items.filter((a) => {
       const all = []
         .concat(a.genres || [])
         .concat(a.themes || [])
         .concat(a.demographics || [])
         .concat(a.explicit_genres || []);
-      const ids = all.map(g => g.mal_id);
+      const ids = all.map((g) => g.mal_id);
       return ids.includes(gid);
     });
   }
@@ -217,18 +226,32 @@ function filterSortFavorites() {
   // sort
   const by = (fn, dir = 1) => (a, b) => (fn(a) > fn(b) ? dir : fn(a) < fn(b) ? -dir : 0);
   switch (state.sort) {
-    case 'popular':       items.sort(by(a => a.members ?? a.popularity ?? 0, 1)); break;
-    case 'least_popular': items.sort(by(a => a.members ?? a.popularity ?? 0, -1)); break;
-    case 'az':            items.sort(by(a => (a.title || '').toLowerCase(), 1)); break;
-    case 'za':            items.sort(by(a => (a.title || '').toLowerCase(), -1)); break;
-    case 'top_rated':     items.sort(by(a => a.score ?? 0, -1)); break;
-    case 'worst_rated':   items.sort(by(a => a.score ?? 0, 1)); break;
-    case 'airing':        items = items.filter(a => (a.status || '').toLowerCase().includes('air')); 
-                          items.sort(by(a => a.members ?? a.popularity ?? 0, 1));
-                          break;
-    case 'upcoming':      items = items.filter(a => (a.status || '').toLowerCase().includes('upcoming'));
-                          items.sort(by(a => a.members ?? a.popularity ?? 0, 1));
-                          break;
+    case 'popular':
+      items.sort(by((a) => a.members ?? a.popularity ?? 0, 1));
+      break;
+    case 'least_popular':
+      items.sort(by((a) => a.members ?? a.popularity ?? 0, -1));
+      break;
+    case 'az':
+      items.sort(by((a) => (a.title || '').toLowerCase(), 1));
+      break;
+    case 'za':
+      items.sort(by((a) => (a.title || '').toLowerCase(), -1));
+      break;
+    case 'top_rated':
+      items.sort(by((a) => a.score ?? 0, -1));
+      break;
+    case 'worst_rated':
+      items.sort(by((a) => a.score ?? 0, 1));
+      break;
+    case 'airing':
+      items = items.filter((a) => (a.status || '').toLowerCase().includes('air'));
+      items.sort(by((a) => a.members ?? a.popularity ?? 0, 1));
+      break;
+    case 'upcoming':
+      items = items.filter((a) => (a.status || '').toLowerCase().includes('upcoming'));
+      items.sort(by((a) => a.members ?? a.popularity ?? 0, 1));
+      break;
   }
   return items;
 }
@@ -239,6 +262,7 @@ async function loadBrowse({ append = false } = {}) {
   const data = await jikanFetch(url);
   const list = data?.data || [];
   renderList(list, { append });
+
   // enable/disable load more
   $('#loadMore').disabled = list.length < PAGE_SIZE;
 }
@@ -249,21 +273,23 @@ async function loadFavorites({ append = false } = {}) {
   const start = (state.page - 1) * PAGE_SIZE;
   const pageItems = items.slice(start, start + PAGE_SIZE);
   renderList(pageItems, { append });
-  $('#loadMore').disabled = (start + PAGE_SIZE) >= items.length;
+
+  $('#loadMore').disabled = start + PAGE_SIZE >= items.length;
 }
 
 // Event handlers
-function debounce(fn, ms=500){
-  let t;
-  return (...args)=>{
-    clearTimeout(t);
-    t = setTimeout(()=>fn(...args), ms);
+function debounce(fn, ms = 500) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
   };
 }
 
 async function refresh({ resetPage = false } = {}) {
   if (resetPage) state.page = 1;
   $('#loadMore').disabled = true;
+
   if (state.mode === 'favorites') {
     await loadFavorites({ append: false });
   } else {
@@ -283,15 +309,15 @@ function bindUI() {
   $('#searchInput').addEventListener('input', onInput);
 
   // Other controls apply on Search click
-  $('#searchBtn').addEventListener('click', async ()=>{
+  $('#searchBtn').addEventListener('click', async () => {
     state.genre = $('#genreSelect').value || '';
-    state.sort  = $('#sortSelect')?.value || 'popular';
-    state.q     = $('#searchInput').value.trim();
+    state.sort = $('#sortSelect')?.value || 'popular';
+    state.q = $('#searchInput').value.trim();
     await refresh({ resetPage: true });
   });
 
   // Enter key triggers search immediately
-  $('#searchInput').addEventListener('keydown', (e)=>{
+  $('#searchInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       $('#searchBtn').click();
@@ -299,13 +325,13 @@ function bindUI() {
   });
 
   // Favorites toggle switches mode immediately
-  $('#showMine').addEventListener('change', async (e)=>{
+  $('#showMine').addEventListener('change', async (e) => {
     state.mode = e.target.checked ? 'favorites' : 'browse';
     await refresh({ resetPage: true });
   });
 
   // Load more
-  $('#loadMore').addEventListener('click', async ()=>{
+  $('#loadMore').addEventListener('click', async () => {
     state.page += 1;
     if (state.mode === 'favorites') {
       await loadFavorites({ append: true });
@@ -315,23 +341,27 @@ function bindUI() {
   });
 
   // Star click (event delegation)
-  $('#grid').addEventListener('click', async (e)=>{
+  $('#grid').addEventListener('click', async (e) => {
     const btn = e.target.closest('.star');
     if (!btn) return;
+
     const card = e.target.closest('.card');
     const id = Number(card?.dataset?.id);
     if (!id) return;
 
     // must be logged in
-    const me = await fetch('/api/user').then(r=>r.json());
-    if (!me) { alert('Prijavi se da bi koristio favorite.'); return; }
+    const me = await fetch('/api/user').then((r) => r.json());
+    if (!me) {
+      alert('Prijavi se da bi koristio favorite.');
+      return;
+    }
 
     if (FAVORITES.has(id)) {
       // remove
       const res = await fetch('/api/favorites', {
-        method:'DELETE',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ anime_id: id })
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anime_id: id }),
       });
       if (res.ok) {
         FAVORITES.delete(id);
@@ -340,16 +370,16 @@ function bindUI() {
         btn.style.background = '#000000'; // ★ CHANGE: boja kruga kad nije favorit
         if (state.mode === 'favorites') {
           // remove from cache and DOM
-          favoritesCache.items = favoritesCache.items.filter(a => Number(a.mal_id) !== id);
+          favoritesCache.items = favoritesCache.items.filter((a) => Number(a.mal_id) !== id);
           card.remove();
         }
       }
     } else {
       // add
       const res = await fetch('/api/favorites', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ anime_id: id })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anime_id: id }),
       });
       if (res.ok) {
         FAVORITES.add(id);
@@ -364,7 +394,7 @@ function bindUI() {
 // Auth area
 async function setupAuth() {
   const wrap = $('#userInfo');
-  const me = await fetch('/api/user').then(r=>r.json()).catch(()=>null);
+  const me = await fetch('/api/user').then((r) => r.json()).catch(() => null);
   if (!wrap) return;
 
   if (!me) {
@@ -379,8 +409,8 @@ async function setupAuth() {
       <span class="user-name">Hi, ${me.first_name || ''}</span>
       <button id="logoutBtn" class="btn-secondary">Logout</button>
     `;
-    $('#logoutBtn').addEventListener('click', async ()=>{
-      await fetch('/api/logout', { method:'POST' });
+    $('#logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/logout', { method: 'POST' });
       location.href = 'login.html';
     });
     await loadFavoriteIds(); // ★ CHANGE: osigurava da su FAVORITES popunjeni prije prvog rendera
@@ -389,10 +419,10 @@ async function setupAuth() {
 }
 
 // Init
-document.addEventListener('DOMContentLoaded', async ()=>{
+document.addEventListener('DOMContentLoaded', async () => {
   // default sort
-  const ssel = $('#sortSelect');
-  if (ssel) ssel.value = 'popular';
+  const sortSelect = $('#sortSelect');
+  if (sortSelect) sortSelect.value = 'popular';
 
   bindUI();
   await setupAuth();
